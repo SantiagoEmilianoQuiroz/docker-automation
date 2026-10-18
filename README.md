@@ -14,6 +14,8 @@ imágenes, redes y, según el servicio, los datos de Docker del usuario.
 ```text
 .
 ├── Makefile
+├── src/
+│   └── console_menu.cpp
 ├── ELK/
 │   ├── docker-compose.yml
 │   ├── ports.conf
@@ -66,6 +68,7 @@ Comprueba la instalación con:
 docker --version
 docker compose version
 make --version
+g++ --version
 ```
 
 ## Uso básico
@@ -265,3 +268,54 @@ make -n deep_delete
 Si un objetivo falla porque ya existe un contenedor con el mismo nombre, revisa
 primero su estado con `docker ps -a`. Si falla por un puerto ocupado, identifica
 qué servicio lo está usando antes de detenerlo o cambiar la configuración.
+
+## Aplicación interactiva en C++
+
+El proyecto incluye una interfaz de consola en `src/console_menu.cpp`. Esta
+aplicación no implementa operaciones Docker por su cuenta: presenta un menú y
+delega cada acción al objetivo correspondiente del Makefile.
+
+Compílala y ejecútala desde la raíz del proyecto:
+
+```bash
+make build_console
+make run_console
+```
+
+`make build_console` genera `bin/docker-menu` con `g++` en modo C++17 y activa
+avisos del compilador (`-Wall -Wextra -Wpedantic`). `make run_console` depende
+de la compilación y después inicia el menú. El directorio `bin/` se crea
+automáticamente. También se puede iniciar directamente el binario ya compilado:
+
+```bash
+./bin/docker-menu
+```
+
+El menú agrupa acciones de Redis, monitorización, ELK y cAdvisor. Incluye el
+objetivo `help` de Make y permite volver al menú después de cada operación. Las
+opciones que borran contenedores o imágenes solicitan confirmación escribiendo
+`s` o `S`; cualquier otra respuesta cancela esa operación. La confirmación es
+una protección contra selecciones accidentales, no un mecanismo de autorización.
+
+### Cómo funciona el código
+
+- `MenuOption` reúne la etiqueta que se muestra, el nombre del objetivo Make y
+  una marca para las operaciones destructivas.
+- `options` es la lista de acciones que alimenta el menú y enlaza cada
+  selección con un objetivo concreto (`build_elk`, `delete_cadvisor`, etc.).
+- `printMenu` muestra las opciones agrupadas por servicio.
+- `readChoice` lee una línea y acepta solo un número entero sin caracteres
+  sobrantes. Las selecciones inválidas se vuelven a solicitar.
+- `confirmDestructiveAction` exige la confirmación explícita antes de ejecutar
+  los objetivos marcados como destructivos.
+- El bucle de `main` procesa la salida, valida el rango y ejecuta `make
+  <objetivo>`. El nombre del objetivo procede exclusivamente de la lista fija
+  de opciones; el texto escrito en el menú nunca se concatena al comando. Así,
+  la aplicación no ofrece una entrada para ejecutar comandos arbitrarios.
+- `std::system` deja que Make muestre directamente su salida en la terminal.
+  `sys/wait.h` permite distinguir una terminación correcta, un código de error y
+  la terminación por señal.
+
+La aplicación debe ejecutarse desde la raíz del proyecto para que `make`
+encuentre el Makefile y las rutas relativas de los archivos Compose. Además,
+hereda los requisitos y permisos de Docker descritos arriba.

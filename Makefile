@@ -218,3 +218,18 @@ load_cadvisor: ## Carga de la imagen de cadvisor y ejecución
 delete_cadvisor: ## Eliminación de contenedores y imagenes de cadvisor
 	docker rm -f $(CADVISOR_CONTAINER)
 	docker rmi $(CADVISOR_IMAGE):$(CADVISOR_TAG)
+
+# -----------------------------------
+# Aplicación de consola
+# -----------------------------------
+
+.PHONY: build_console run_console
+
+bin/docker-menu: src/console_menu.cpp
+	@mkdir -p bin
+	$(CXX) -std=c++17 -Wall -Wextra -Wpedantic -O2 -o $@ $<
+
+build_console: bin/docker-menu ## Compila la aplicación interactiva de consola
+
+run_console: build_console ## Compila y ejecuta la aplicación interactiva
+	./bin/docker-menu
